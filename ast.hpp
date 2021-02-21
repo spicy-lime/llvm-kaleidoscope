@@ -48,7 +48,7 @@ class BinaryExprAST : public ExprAST
 class CallExprAST : public ExprAST
 {
    public:
-      CallExprAST(std::string const& callee, std::vector<std::unqiue_ptr<ExprAST>> args)
+      CallExprAST(std::string const& callee, std::vector<std::unique_ptr<ExprAST>> args)
          : Callee{callee}
          , Args{std::move(args)}
       {}
@@ -79,6 +79,7 @@ class FunctionAST
       {}
 
    private:
-      std::unqiue_ptr<PrototypeAST> Proto;
+
+      std::unique_ptr<PrototypeAST> Proto;
       std::unique_ptr<ExprAST> Body;
 };

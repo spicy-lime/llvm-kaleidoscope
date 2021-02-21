@@ -2,23 +2,31 @@
 #define __LEXER_H_
 
 #include <string>
+#include <istream>
 
-enum Token
+enum class TokenType
 {
-   tok_eof = -1,
+   eof = -1,
 
    //commands
-   tok_def = -2,
-   tok_extern = -3,
+   def = -2,
+   ext = -3,
 
    //primary
-   tok_identifier = -4,
-   tok_number = -5
+   id = -4,
+   num = -5,
+   sym = -6
 };
 
-static std::string IdentifierStr;
-static double NumVal;
+struct Token
+{
+   TokenType type{TokenType::eof};
+   std::string id{}; // identifiers
+   double num{}; // number types (doubles)
+   char ch; // single character
+};
 
 
+void gettok(Token& tok, std::istream& stream);
 
 #endif // __LEXER_H_
