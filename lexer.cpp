@@ -73,94 +73,6 @@ void gettok(Token& tok, std::istream& stream)
    {
       return;
    }
-//   char LastChar = ' ';
-//
-//   while(std::isspace(LastChar))
-//   {
-//      if(stream)
-//      {
-//         stream >> LastChar;
-//      }
-//      else
-//      {
-//         break;
-//      }
-//   }
-//
-//   if(isalpha(LastChar))
-//   {
-//      tok.id = LastChar;
-//      stream >> LastChar;
-//      while(stream)
-//      {
-//         if(isalnum(LastChar))
-//         {
-//            stream >> LastChar;
-//            tok.id += LastChar;
-//         }
-//         else
-//         {
-//            break;
-//         }
-//      }
-//      if(tok.id == "def")
-//      {
-//         tok.type = TokenType::def;
-//         return;
-//      }
-//      if(tok.id == "extern")
-//      {
-//         tok.type = TokenType::ext;
-//         return;
-//      }
-//      tok.type = TokenType::id;
-//      return;
-//   }
-//
-//   if(std::isdigit(LastChar) || LastChar == '.')
-//   {
-//      std::string NumStr;
-//      do
-//      {
-//         NumStr += LastChar;
-//         stream >> LastChar;
-//      } while(std::isdigit(LastChar) || LastChar == '.');
-//      tok.num = std::strtod(NumStr.c_str(), 0);
-//      return;
-//   }
-//
-//   if(LastChar == '#')
-//   {
-//      do
-//      {
-//         if(stream)
-//         {
-//            stream >> LastChar;
-//         }
-//         else
-//         {
-//            break;
-//         }
-//      } while(LastChar != EOF && LastChar != '\n' && LastChar != '\r');
-//
-//      if(stream)
-//      {
-//         return gettok(tok, stream);
-//      }
-//   }
-//
-//   if(!stream)
-//   {
-//      tok.type = TokenType::eof;
-//      return;
-//   }
-//
-//   int ThisChar = LastChar;
-//   stream >> LastChar;
-//
-//   tok.type = TokenType::sym;
-//   tok.ch = ThisChar;
-//   return;
 }
 
 #ifdef BUILD_TESTS
@@ -281,16 +193,6 @@ TEST_F(lexer_test, decimal)
 }
 
 TEST_F(lexer_test, decimal_bad1)
-{
-   std::stringstream io;
-   io << "1234.-";
-   Token tok{};
-   gettok(tok, io);
-   EXPECT_EQ(tok.type, TokenType::eof);
-   EXPECT_EQ(tok.num, double(0));
-}
-
-TEST_F(lexer_test, decimal_bad2)
 {
    std::stringstream io;
    io << "1234.-";
