@@ -13,7 +13,6 @@ void gettok(Token& tok, std::istream& stream)
 
       if((stream >> LastChar) && (stream) && std::isspace(LastChar))
       {
-
          while((stream >> LastChar) && (stream) && std::isspace(LastChar));
       }
       else if((stream) && isalpha(LastChar))
@@ -68,11 +67,13 @@ void gettok(Token& tok, std::istream& stream)
             return gettok(tok, stream);
          }
       }
+      else if((stream))
+      {
+         tok.ch = LastChar;
+         tok.type = TokenType::sym;
+      }
    }
-   else
-   {
-      return;
-   }
+   return;
 }
 
 #ifdef BUILD_TESTS
@@ -200,6 +201,16 @@ TEST_F(lexer_test, decimal_bad1)
    gettok(tok, io);
    EXPECT_EQ(tok.type, TokenType::eof);
    EXPECT_EQ(tok.num, double(0));
+}
+
+TEST_F(lexer_test, sym_paren)
+{
+   std::stringstream io;
+   io << "(";
+   Token tok{};
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, '(');
 }
 
 #endif
