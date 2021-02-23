@@ -3,10 +3,12 @@
 
 
 
-int getNextToken(std::string& str)
-{
-   return CurTok = gettok(str);
-}
+
+//int getNextToken(std::string& str, std::istream& stream)
+//{
+//   return CurTok = gettok(str, stream);
+//}
+
 
 std::unique_ptr<ExprAST> logError(char const* str)
 {
@@ -21,21 +23,24 @@ std::unique_ptr<PrototypeAST> logErrorP(char const* str)
 }
 
 
-std::unique_ptr<ExprAST> parsePrimary()
+std::unique_ptr<ExprAST> parsePrimary(Token& tok, std::istream& stream)
 {
-   switch(CurTok)
+   switch(tok.type)
    {
-      case tok_identifier:
+      case TokenType::id:
       {
-         return parseIndentifierExpr();
+         return parseIndentifierExpr(tok, stream);
       }
-      case tok_number:
+      case TokenType::num:
       {
-         return parseNumberExpr();
+         return parseNumberExpr(tok, stream);
       }
-      case '(':
+      case TokenType::sym:
       {
-         return parseParenExpr();
+         if(tok.ch == '(')
+         {
+            return parseParenExpr(tok, stream);
+         }
       }
       default:
       {
@@ -44,47 +49,47 @@ std::unique_ptr<ExprAST> parsePrimary()
    }
 }
 
-std::unique_ptr<ExprAST> parseNumberExpr()
+std::unique_ptr<ExprAST> parseNumberExpr(Token& tok, std::istream& stream)
 {
-   auto res = std::make_unique<NumberExprAST>(NumVal);
-   getNextToken();
+   auto res = std::make_unique<NumberExprAST>(tok.num);
+   gettok(tok, stream);
    return std::move(res);
 }
 
-std::unique_ptr<ExprAST> parseParenExpr()
+std::unique_ptr<ExprAST> parseParenExpr(Token& tok, std::istream& stream)
 {
-   getNextToken();
-   auto V = parseExpression();
+   gettok(tok, stream);
+   auto V = parseExpression(tok, stream);
    if(!V)
    {
       return nullptr;
    }
-   if(CurTok != ')')
+   if(tok.ch != ')')
    {
       return logError("Expected ')'");
    }
-   getNextToken();
+   gettok(tok, stream);
    return V;
 }
 
-std::unique_ptr<ExprAST> parseIndentifierExpr()
+std::unique_ptr<ExprAST> parseIndentifierExpr(Token& tok, std::istream& stream)
 {
-   std::string idName = identifierStr;
-   getNextToken();
+   std::string idName = tok.id;
+   gettok(tok, stream);
 
-   if(CurTok != '(')
+   if(tok.ch != '(')
    {
       return std::make_unique<VariableExprAST>(idName);
    }
 
-   getNextToken();
+   gettok(tok, stream);
 
    std::vector<std::unique_ptr<ExprAST>> args;
-   if(CurTok != ')')
+   if(tok.ch != ')')
    {
       while(1)
       {
-         if(auto arg = parseExpression())
+         if(auto arg = parseExpression(tok, stream))
          {
             args.push_back(std::move(arg));
          }
@@ -92,48 +97,48 @@ std::unique_ptr<ExprAST> parseIndentifierExpr()
          {
             return nullptr;
          }
-         if(CurTok == ')')
+         if(tok.ch == ')')
          {
             break;
          }
-         if(CurTok != ',')
+         if(tok.ch != ',')
          {
             return logError("Expected ')' or ',' in argument list");
          }
-         getNextToken();
+         gettok(tok, stream);
       }
    }
-   getNextToken();
+   gettok(tok, stream);
    return std::make_unique<CallExprAST>(idName, std::move(args));
 }
 
-std::unique_ptr<ExprAST> parseExpression()
+std::unique_ptr<ExprAST> parseExpression(Token& tok, std::istream& stream)
 {
-   auto lhs = parsePrimary();
+   auto lhs = parsePrimary(tok, stream);
    if(!lhs)
    {
       return nullptr;
    }
-   return parseBinOpRhs(0, std::move(lhs));
+   return parseBinOpRhs(tok, stream, 0, std::move(lhs));
 }
 
-std::unique_ptr<ExprAST> parseBinOpRhs(int exprPrec, std::unique_ptr<ExprAST> lhs)
+std::unique_ptr<ExprAST> parseBinOpRhs(Token& tok, std::istream& stream, int exprPrec, std::unique_ptr<ExprAST> lhs)
 {
    while(1)
    {
-      int tokPrec = getTokPrecedence();
+      int tokPrec = getTokPrecedence(tok);
       if(tokPrec < exprPrec)
       {
          return lhs;
       }
-      int binOp = CurTok;
-      getNextToken();
-      auto rhs = parsePrimary();
+      int binOp = tok.ch;
+      gettok(tok, stream);
+      auto rhs = parsePrimary(tok, stream);
       if(!rhs)
       {
          return nullptr;
       }
-      int nextPrec = getTokPrecedence();
+      int nextPrec = getTokPrecedence(tok);
       if(tokPrec < nextPrec)
       {
 
@@ -142,69 +147,74 @@ std::unique_ptr<ExprAST> parseBinOpRhs(int exprPrec, std::unique_ptr<ExprAST> lh
    }
 }
 
-int getTokPrecedence()
+int getTokPrecedence(Token& tok)
 {
-   if(!isascii(CurTok))
+   if(!isascii(tok.ch))
    {
       return -1;
    }
-   int tokPrec = BinopPrecedence[CurTok];
+   int tokPrec = BinopPrecedence[tok.ch];
    if(tokPrec <= 0) return -1;
    return tokPrec;
 }
 
-std::unique_ptr<PrototypeAST> parsePrototype(int& curTok, std::string& proto)
+std::unique_ptr<PrototypeAST> parsePrototype(Token& tok, std::istream& stream)
 {
-   if(curTok != tok_identifier)
+   if(tok.type != TokenType::id)
    {
       return logErrorP("Expected function name in protoype");
    }
-   std::string fnName = proto;
-   curTok = getNextToken(proto);
-   if(curTok != '(')
+   std::string fnName = tok.id;
+   gettok(tok, stream);
+   if(tok.ch != '(')
    {
       return logErrorP("Expected '(' in prototype");
    }
    std::vector<std::string> argNames;
-   while((curTok = getNextToken(proto)) == tok_identifier)
+   while((gettok(tok, stream), tok.type) == TokenType::id)
    {
-      argNames.push_back(proto);
+      argNames.push_back(tok.id);
    }
-   if(curTok != ')')
+   if(tok.ch != ')')
    {
       return logErrorP("Exprect ')' in prototype");
    }
-   getNextToken();
+   gettok(tok, stream);
    return std::make_unique<PrototypeAST>(fnName, std::move(argNames));
 }
 
-std::unique_ptr<FunctionAST> parseDefinition(int& curTok, std::string& def)
+std::unique_ptr<FunctionAST> parseDefinition(Token& tok, std::istream& stream)
 {
-   curTok = getNextToken(def);
-   auto proto = parsePrototype();
+   gettok(tok, stream);
+   auto proto = parsePrototype(tok, stream);
    if(!proto)
    {
       return nullptr;
    }
-   if(auto expr = parseExpression())
+   if(auto expr = parseExpression(tok, stream))
    {
       return std::make_unique<FunctionAST>(std::move(proto), std::move(expr));
    }
    return nullptr;
 }
 
-std::unique_ptr<PrototypeAST> parseExtern()
+std::unique_ptr<PrototypeAST> parseExtern(Token& tok, std::istream& stream)
 {
-   getNextToken();
-   return parsePrototype();
+   gettok(tok, stream);
+   return parsePrototype(tok, stream);
 }
 
-std::unique_ptr<FunctionAST> parseTopLevelExpr()
+std::unique_ptr<FunctionAST> parseTopLevelExpr(Token& tok, std::istream& stream)
 {
-   if(auto expr = parseExpression())
+   if(auto expr = parseExpression(tok, stream))
    {
       auto proto = std::make_unique<PrototypeAST>("", std::vector<std::string>());
       return std::make_unique<FunctionAST>(std::move(proto), std::move(expr));
    }
    return nullptr;
 }
+
+#ifdef BUILD_TESTS
+#include <gtest/gtest.h>
+
+#endif

@@ -20,6 +20,9 @@ driver.o: driver.cpp parser.hpp lexer.hpp
 test_lexer: lexer.o
 	cc $(CFLAGS) $(INC) $(LIBS) -DBUILD_TESTS lexer.cpp -o test_lexer
 
+test_parser: parser.o lexer.o lexer.hpp
+	cc $(CFLAGS) $(INC) $(LIBS) -DBUILD_TESTS parser.cpp lexer.o -o test_parser
+
 clean:
 	-rm *.o
 	-rm *.a

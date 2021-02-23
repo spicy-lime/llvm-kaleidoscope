@@ -7,70 +7,75 @@ void gettok(Token& tok, std::istream& stream)
 {
    char LastChar = ' ';
    tok.type = TokenType::eof;
+   tok.id.clear();
 
    if(stream)
    {
 
-      if((stream >> LastChar) && (stream) && std::isspace(LastChar))
+      stream >> std::noskipws, LastChar = stream.peek();
+      if(stream.good())
       {
-         while((stream >> LastChar) && (stream) && std::isspace(LastChar));
-      }
-      else if((stream) && isalpha(LastChar))
-      {
-
-         tok.type = TokenType::id;
-         tok.id = LastChar;
-         while((stream >> LastChar) && (stream))
+         if(std::isspace(LastChar))
          {
-            if(isalnum(LastChar))
+
+            do
             {
-               tok.id += LastChar;
+               stream >> LastChar;
             }
-            else
+            while((LastChar = stream.peek()) && (stream.good()) && std::isspace(LastChar));
+            if(!stream.good())
             {
-               break;
+               return;
             }
          }
+         if(isalpha(LastChar))
+         {
 
-         if(tok.id == "def")
-         {
-            tok.type = TokenType::def;
-         }
-         else if(tok.id == "extern")
-         {
-            tok.type = TokenType::ext;
-         }
-         return;
-      }
-      else if((stream) && (std::isdigit(LastChar) || LastChar == '.'))
-      {
+            tok.type = TokenType::id;
+            do
+            {
+               stream >> LastChar, tok.id += LastChar;
+            } while(isalnum(LastChar = stream.peek()) && (stream.good()));
 
-         tok.type = TokenType::eof;
-         std::string NumStr;
-         do
+            if(tok.id == "def")
+            {
+               tok.type = TokenType::def;
+            }
+            else if(tok.id == "extern")
+            {
+               tok.type = TokenType::ext;
+            }
+            return;
+         }
+         else if((std::isdigit(LastChar) || LastChar == '.'))
          {
-            NumStr += LastChar;
-         } while( (stream >> LastChar) && (stream) && (std::isdigit(LastChar) || LastChar == '.'));
-         if(std::isdigit(LastChar))
-         {
+
             tok.type = TokenType::num;
-            tok.num = std::strtod(NumStr.c_str(), 0);
+            std::string NumStr{};
+            do
+            {
+               NumStr += LastChar;
+               stream >> LastChar;
+            } while((LastChar = stream.peek()) && (stream.good()) && (std::isdigit(LastChar) || LastChar == '.'));
+            tok.num = strtod(NumStr.c_str(), nullptr);
+            return;
          }
-         return;
-      }
-      else if((stream) && (LastChar == '#'))
-      {
-
-         while((stream >> LastChar) && (stream) && LastChar != '\n' && LastChar != '\r');
-         if(stream)
+         else if(LastChar == '#')
          {
-            return gettok(tok, stream);
+
+            while((stream >> LastChar) && (stream) && LastChar != '\n' && LastChar != '\r');
+            if(stream)
+            {
+               return gettok(tok, stream);
+            }
          }
-      }
-      else if((stream))
-      {
-         tok.ch = LastChar;
-         tok.type = TokenType::sym;
+         else
+         {
+            stream >> LastChar;
+            tok.ch = LastChar;
+            tok.type = TokenType::sym;
+         }
+
       }
    }
    return;
@@ -123,7 +128,7 @@ TEST_F(lexer_test, id_multiple)
    EXPECT_EQ(tok.id, "ABC");
 }
 
-TEST_F(lexer_test, id_multiple_lead_space)
+TEST_F(lexer_test, id_lead_space)
 {
    std::stringstream io;
    io << " ABC";
@@ -133,7 +138,7 @@ TEST_F(lexer_test, id_multiple_lead_space)
    EXPECT_EQ(tok.id, "ABC");
 }
 
-TEST_F(lexer_test, id_multiple_trail_space)
+TEST_F(lexer_test, id_trail_space)
 {
    std::stringstream io;
    io << "ABC ";
@@ -143,7 +148,7 @@ TEST_F(lexer_test, id_multiple_trail_space)
    EXPECT_EQ(tok.id, "ABC");
 }
 
-TEST_F(lexer_test, definition)
+TEST_F(lexer_test, id_definition)
 {
    std::stringstream io;
    io << "def ";
@@ -153,7 +158,7 @@ TEST_F(lexer_test, definition)
    EXPECT_EQ(tok.id, "def");
 }
 
-TEST_F(lexer_test, extern_word)
+TEST_F(lexer_test, id_extern)
 {
    std::stringstream io;
    io << "extern ";
@@ -193,14 +198,14 @@ TEST_F(lexer_test, decimal)
    EXPECT_EQ(tok.num, double(1234.567));
 }
 
-TEST_F(lexer_test, decimal_bad1)
+TEST_F(lexer_test, comment)
 {
    std::stringstream io;
-   io << "1234.-";
+   io << "# this is a comment \n foo";
    Token tok{};
    gettok(tok, io);
-   EXPECT_EQ(tok.type, TokenType::eof);
-   EXPECT_EQ(tok.num, double(0));
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "foo");
 }
 
 TEST_F(lexer_test, sym_paren)
@@ -211,6 +216,227 @@ TEST_F(lexer_test, sym_paren)
    gettok(tok, io);
    EXPECT_EQ(tok.type, TokenType::sym);
    EXPECT_EQ(tok.ch, '(');
+}
+
+TEST_F(lexer_test, chain0)
+{
+   std::stringstream io;
+   io << "def foo";
+   Token tok{};
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::def);
+   EXPECT_EQ(tok.id, "def");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "foo");
+}
+
+TEST_F(lexer_test, chain1)
+{
+   std::stringstream io;
+   io << "4)";
+   Token tok{};
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::num);
+   EXPECT_EQ(tok.num, double(4));
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, ')');
+}
+
+TEST_F(lexer_test, chain2)
+{
+   std::stringstream io;
+   io << "(4";
+   Token tok{};
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, '(');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::num);
+   EXPECT_EQ(tok.num, double(4));
+}
+
+TEST_F(lexer_test, chain3)
+{
+   std::stringstream io;
+   io << "def fib(x";
+   Token tok{};
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::def);
+   EXPECT_EQ(tok.id, "def");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "fib");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, '(');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "x");
+}
+
+TEST_F(lexer_test, chain)
+{
+   std::stringstream io;
+   io << "def foo(4)";
+   Token tok{};
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::def);
+   EXPECT_EQ(tok.id, "def");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "foo");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, '(');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::num);
+   EXPECT_EQ(tok.num, double(4));
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, ')');
+}
+
+TEST_F(lexer_test, program)
+{
+   std::stringstream io;
+
+   io << \
+      "# Compute the x'th fibonacci number. \n \
+      def fib(x) \n \
+         if x < 3 then \n \
+            1 \n \
+         else \n \
+            fib(x-1)+fib(x-2) \
+      # This expression will compute the 40th number. \n \
+      fib(40)";
+   Token tok{};
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::def);
+   EXPECT_EQ(tok.id, "def");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "fib");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, '(');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "x");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, ')');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "if");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "x");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, '<');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::num);
+   EXPECT_EQ(tok.num, double(3));
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "then");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::num);
+   EXPECT_EQ(tok.num, double(1));
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "else");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "fib");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, '(');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "x");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, '-');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::num);
+   EXPECT_EQ(tok.num, double(1));
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, ')');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, '+');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "fib");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, '(');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "x");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, '-');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::num);
+   EXPECT_EQ(tok.num, double(2));
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, ')');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::id);
+   EXPECT_EQ(tok.id, "fib");
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, '(');
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::num);
+   EXPECT_EQ(tok.num, double(40));
+
+   gettok(tok, io);
+   EXPECT_EQ(tok.type, TokenType::sym);
+   EXPECT_EQ(tok.ch, ')');
 }
 
 #endif
