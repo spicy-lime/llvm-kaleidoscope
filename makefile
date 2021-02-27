@@ -1,29 +1,36 @@
-CFLAGS = -g3 -o0 -std=c++17 -lc++
-LIBS = 	-lgtest -lgtest_main
+CFLAGS = -g3 -o0 -std=c++17
+LIBS = 	-lc++ -lgtest -lgtest_main `llvm-config --cxxflags --ldflags --system-libs --libs core` -frtti
 INC = -I/usr/local/include/gtest
 
-test: parser.o lexer.o
+test: parser lexer
 	cc -lc++ -g3 -o0 -std=c++17 driver.cpp parser.o lexer.o -o test
 
-lib: parser.o lexer.o
-	ar -r libkaleidoscope.a parser.o lexer.o
+lib: ast parser lexer
+	ar -r libkaleidoscope.a parser.o lexer.o abstract-syntax-tree.o
 
-parser.o: parser.hpp lexer.hpp ast.hpp
-	cc -c -g3 -o0 -std=c++17 parser.cpp -o parser.o
+parser: lexer
+	cc -c $(CFLAGS) parser.cpp -o parser.o
 
-lexer.o: lexer.cpp
-	cc -c -g3 -o0 -std=c++17 lexer.cpp -o lexer.o
+lexer:
+	cc -c $(CFLAGS) lexer.cpp -o lexer.o
 
-driver.o: driver.cpp parser.hpp lexer.hpp
-	cc -c -g3 -o0 -std=c++17 driver.cpp -o driver.o
+driver:
+	cc -c $(CFLAGS) driver.cpp -o driver.o
+
+ast:
+	cc -c $(CFLAGS) abstract-syntax-tree.cpp -o abstract-syntax-tree.o
 
 test_lexer: lexer.o
 	cc $(CFLAGS) $(INC) $(LIBS) -DBUILD_TESTS lexer.cpp -o test_lexer
 
-test_parser: parser.o lexer.o lexer.hpp
-	cc $(CFLAGS) $(INC) $(LIBS) -DBUILD_TESTS parser.cpp lexer.o -o test_parser
+test_parser: lexer ast
+	cc $(CFLAGS) $(INC) $(LIBS) -DBUILD_TESTS parser.cpp lexer.o abstract-syntax-tree.o -o test_parser
 
 clean:
 	-rm *.o
 	-rm *.a
 	-rm *.out
+	-rm test_parser
+	-rm test_lexer
+	-rm test
+	-rm -r *.dSYM/

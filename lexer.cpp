@@ -8,6 +8,7 @@ void gettok(Token& tok, std::istream& stream)
    char LastChar = ' ';
    tok.type = TokenType::eof;
    tok.id.clear();
+   tok.ch = 0;
 
    if(stream)
    {
